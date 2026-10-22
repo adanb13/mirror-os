@@ -16,24 +16,16 @@ On a 64-bit Pi, `uname -m` should report `aarch64`. Allow space for the source, 
 
 Your user must be able to run `docker info`. If Docker reports permission denied, use your existing administrator-approved Docker access setup or the [official post-install instructions](https://docs.docker.com/engine/install/linux-postinstall/). Docker group membership grants powerful host access. As an alternative, run the displayed Compose commands with `sudo`; keep the repository and `.env` owned by your normal user.
 
-## 2. Clone your private repository
+## 2. Clone the public repository
 
-The repository belongs to **adanb13**. For HTTPS cloning, Git needs credentials with access to it. If GitHub CLI is already available:
+The repository belongs to **adanb13** and is public. No GitHub account, token, or SSH key is needed for HTTPS cloning:
 
 ```sh
-gh auth login --hostname github.com --git-protocol https --web
-gh auth setup-git
 git clone https://github.com/adanb13/mirror-os.git
 cd mirror-os
 ```
 
-Otherwise use your existing Git credential manager, a GitHub personal access token when Git prompts for a password, or your already configured SSH key:
-
-```sh
-git clone git@github.com:adanb13/mirror-os.git
-```
-
-Do not put a token in a clone URL, shell history, `.env`, or a committed file. If you see `Repository not found`, verify that the Pi's Git credentials belong to an account with access. A local directory named `mirror-os` causes `git clone` to stop; inspect it rather than deleting or overwriting it.
+A local directory named `mirror-os` causes `git clone` to stop; inspect it rather than deleting or overwriting it. If you already cloned this repository successfully, run `git pull --ff-only` from its directory instead.
 
 ## 3. Start the dashboard
 
