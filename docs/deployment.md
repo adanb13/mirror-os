@@ -80,6 +80,16 @@ API reference: [Home Assistant REST API](https://developers.home-assistant.io/do
 
 ## Updates, stop and rollback
 
+To fetch and update readable Git checkouts across the Pi's common source directories:
+
+```sh
+bash scripts/update-repos.sh
+```
+
+The helper searches `/home`, `/opt`, `/srv`, `/usr/local/src`, `/mnt` and `/media` where available. You can instead pass explicit search roots, including other NVMe mount points: `bash scripts/update-repos.sh "$HOME" /path/to/other/mount`. It fetches all configured remotes and fast-forwards clean current branches to their configured tracking branches. For a fork, this is the branch already configured in Git; it does not guess between `origin` and a remote named `upstream`.
+
+Local edits, untracked files, local commits, detached checkouts and missing tracking branches are reported for attention. Nothing is reset, stashed or pushed. Run as your normal user; unreadable repositories and ownership restrictions are reported, and directories outside the search roots are not inspected. This updates source files, not installed packages, models or running services. Submodules are not changed. Review the summary and each `ATTENTION` entry before considering the Pi fully updated.
+
 From this repository's directory:
 
 ```sh
