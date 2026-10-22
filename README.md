@@ -4,7 +4,7 @@ A custom, modular dashboard for a Raspberry Pi 5 driving a repurposed Lululemon 
 
 ## Run on the Pi
 
-Open a terminal **on the Pi**. No SSH connection is assumed. You need Git, Docker Engine with Compose, and permission to access Docker. This repository is private: authenticate Git to GitHub first (see [deployment](docs/deployment.md)).
+Open a terminal **on the Pi**. No SSH connection is assumed. You need Git, Docker Engine with Compose, and permission to access Docker. This repository is public; no GitHub sign-in is required to clone it.
 
 ```sh
 git clone https://github.com/adanb13/mirror-os.git
