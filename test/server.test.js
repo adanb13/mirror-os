@@ -21,11 +21,11 @@ const post = (base, data, headers = {}) => fetch(`${base}/api/chat`, {
 });
 const question = { messages: [{ role: 'user', content: 'Hello mirror' }] };
 
-test('dashboard assets and health work with AI offline; secrets are not exposed', async t => {
+test('background API stays healthy with AI offline, exposes no UI and keeps secrets server-side', async t => {
   const { base } = await fixture(t, (_, res) => res.writeHead(503).end(), { HA_TOKEN: 'secret-token' });
   assert.equal((await fetch(`${base}/api/health`)).status, 200);
   for (const asset of ['/', '/styles.css', '/app.js', '/modules/assistant.js']) {
-    assert.equal((await fetch(`${base}${asset}`)).status, 200, asset);
+    assert.equal((await fetch(`${base}${asset}`)).status, 404, asset);
   }
   const config = await (await fetch(`${base}/api/config`)).text();
   assert.ok(!config.includes('secret-token'));
@@ -70,7 +70,7 @@ test('invalid requests, system prompt injection, oversized bodies and cross-orig
   assert.equal((await fetch(`${base}/api/chat`, { method: 'POST', body: '{}' })).status, 415);
 });
 
-test('does not serve configuration or files outside public/', async t => {
+test('background API does not serve configuration or source files', async t => {
   const { base } = await fixture(t, (_, res) => res.end('{}'));
   for (const route of ['/.env', '/src/server.js', '/%2e%2e%2fsrc/server.js', '/modules/../../package.json']) {
     assert.equal((await fetch(base + route)).status, 404, route);
@@ -123,9 +123,9 @@ test('Home Assistant is disabled without complete configuration', async t => {
   assert.deepEqual(await (await fetch(`${base}/api/home-assistant`)).json(), { state: 'disabled', entities: [] });
 });
 
-test('configuration validates ports, modules, timezones and entity IDs', () => {
-  for (const env of [{ PORT: 'bad' }, { AI_TIMEOUT_MS: '-1' }, { TIMEZONE: 'invalid' }, { MODULES: 'bogus' }, { AI_BASE_URL: 'file:///tmp/foo' }, { HA_ENTITIES: '../secret' }]) {
+test('configuration validates ports, timezones and entity IDs; legacy UI settings do not control MagicMirror', () => {
+  for (const env of [{ PORT: 'bad' }, { AI_TIMEOUT_MS: '-1' }, { TIMEZONE: 'invalid' }, { AI_BASE_URL: 'file:///tmp/foo' }, { HA_ENTITIES: '../secret' }]) {
     assert.throws(() => loadConfig(env));
   }
-  assert.deepEqual(loadConfig({ MODULES: 'clock,clock,notes' }).modules, ['clock', 'notes']);
+  assert.equal(loadConfig({ MODULES: 'clock,notes,assistant' }).modules, undefined);
 });

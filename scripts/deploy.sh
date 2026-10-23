@@ -22,5 +22,6 @@ if [ ! -e .env ]; then
   (umask 077; cp .env.example .env)
 fi
 docker compose -p mirror-os config --quiet
-docker compose -p mirror-os up -d --build --wait --wait-timeout 120
-echo 'Mirror OS is ready. Open http://localhost:3000 on the Pi (or your configured port).'
+docker compose --progress plain -p mirror-os up -d --build --wait --wait-timeout 120
+echo 'MagicMirror² is ready on Pi port 3000 (or your configured port).'
+echo 'Background API: Pi port 3001. Existing Hailo-Ollama: Pi port 8000. Neither has a mirror UI.'

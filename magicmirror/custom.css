@@ -1,0 +1,13 @@
+/* Keep upstream MagicMirror² regions and clock on a completely black canvas. */
+:root {
+  --color-background: #000;
+  --color-text: #ddd;
+  --color-text-bright: #fff;
+  --gap-body-top: clamp(32px, 4vw, 64px);
+  --gap-body-right: clamp(32px, 4vw, 64px);
+  --gap-body-bottom: clamp(32px, 4vw, 64px);
+  --gap-body-left: clamp(32px, 4vw, 64px);
+}
+html, body { background: #000; }
+.clock .time { font-size: clamp(3rem, 7vw, 5rem); }
+.clock .date { font-size: clamp(1rem, 2.4vw, 1.5rem); }

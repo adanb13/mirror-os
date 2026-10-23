@@ -1,112 +1,99 @@
-# Deploy without replacing the Pi installation
+# Deploy actual MagicMirror² without replacing the Pi installation
 
-## 1. Check the existing Pi
+## Existing installation: one update
 
-Use the Pi's local terminal with a keyboard, or any terminal session you already have. The project assumes an already booting **64-bit Linux** installation on the NVMe. Keep that installation, its display configuration, Hailo runtime, models and other containers.
-
-```sh
-uname -m
-git --version
-docker version
-docker compose version
-df -h .
-```
-
-On a 64-bit Pi, `uname -m` should report `aarch64`. Allow space for the source, Node image and Docker build cache. If Git is missing, install it with your distribution's package manager. If Docker/Compose are missing, follow [Docker's Debian installation instructions](https://docs.docker.com/engine/install/debian/) for your existing distribution and architecture; do not reinstall Raspberry Pi OS. Raspberry Pi OS is Debian based; use the matching Debian release and `arm64` packages. No installer is silently run by this project.
-
-Your user must be able to run `docker info`. If Docker reports permission denied, use your existing administrator-approved Docker access setup or the [official post-install instructions](https://docs.docker.com/engine/install/linux-postinstall/). Docker group membership grants powerful host access. As an alternative, run the displayed Compose commands with `sudo`; keep the repository and `.env` owned by your normal user.
-
-## 2. Clone the public repository
-
-The repository belongs to **adanb13** and is public. No GitHub account, token, or SSH key is needed for HTTPS cloning:
+From the Pi's SSH terminal:
 
 ```sh
-git clone https://github.com/adanb13/mirror-os.git
-cd mirror-os
+cd ~/mirror-os
+git status --short
+git pull --ff-only
+sudo docker compose --progress plain -p mirror-os up -d --build --wait --wait-timeout 120
 ```
 
-A local directory named `mirror-os` causes `git clone` to stop; inspect it rather than deleting or overwriting it. If you already cloned this repository successfully, run `git pull --ff-only` from its directory instead.
+Commit or back up your own source edits before pulling. This changes only the `mirror-os` Compose project. Its existing `dashboard` service becomes actual upstream MagicMirror²; a new `backend` service provides a background API. It does not remove other containers, format storage, change boot settings, install Hailo drivers, or download/replace AI models. Your existing `.env` is kept. The earlier `MODULES` and `MIRROR_TITLE` keys no longer affect the display.
 
-## 3. Start the dashboard
+MagicMirror² is fetched from the official v2.38.0 release commit `f138f5b690ceab6450f55c852ac81d268363f563`. Its upstream lockfile determines dependencies. Both images run as an unprivileged user with a read-only filesystem and no host file/device or Docker socket mounts. Linux host networking reaches existing host services; the servers bind to loopback by default. No hard memory cap is requested, avoiding the unsupported-cgroup memory warning on the user's Pi.
+
+The first MagicMirror image build needs internet access and may take several minutes. Plain progress avoids terminal redraw noise. The readiness wait begins after the build. If a port is occupied, inspect its owner and select unused ports in `.env`; do not stop unrelated services.
+
+## Viewing over SSH from Windows
+
+The Pi currently has no screen/keyboard attached. A browser's `127.0.0.1` means the computer running that browser. An SSH tunnel forwards a Windows-local port to the Pi's loopback display port.
+
+In a separate **Windows PowerShell** window:
+
+```powershell
+ssh -N -L 127.0.0.1:13300:127.0.0.1:3000 mirror@10.0.0.177
+```
+
+Enter the Pi password and leave that window running. It normally appears idle. Open **http://127.0.0.1:13300** in the Windows browser. Reuse your usual SSH identity/port options if needed. If the Pi address changes, obtain it with `hostname -I` in the existing Pi terminal. Use the LAN address, not Docker's bridge address.
+
+The existing tunnel does not need changing during this migration. Reload the page after the containers become healthy; use Ctrl+Shift+R if an old browser page remains visible. The expected page has MagicMirror²'s clock and date, with no AI cards, input fields or branding.
+
+## When the physical Mirror display is connected
+
+The Pi must have a working graphical session and browser and a working connection to the Mirror panel/controller. The containers run servers; they do not configure HDMI, panel power, rotation, a desktop environment or the original Mirror computer.
+
+In the Pi's graphical desktop, display `http://127.0.0.1:3000`. To use an already installed Chromium in full screen:
 
 ```sh
-sh scripts/deploy.sh
+chromium --kiosk --no-first-run http://127.0.0.1:3000
 ```
 
-This creates a new Compose project named `mirror-os` with one dashboard container. It uses Linux host networking so a Hailo server bound to the Pi's loopback interface remains reachable. The application listens on `127.0.0.1:3000` by default. There are no device mounts, privileged mode, host filesystem mounts or Docker socket mounts.
+Some installations name it `chromium-browser`. Use the desktop display settings for portrait orientation. Test before adding the browser command to desktop Startup Applications. SSH alone cannot open a visible browser without a graphical session. Exit the kiosk with Alt+F4.
 
-If port 3000 is already used, edit `PORT` in `.env`, rerun the deployment script and use the chosen port in the browser. Do not stop unrelated containers to free the port.
+## Hailo remains a background service
 
-```sh
-docker compose -p mirror-os ps
-curl -fsS http://127.0.0.1:3000/api/health
-```
+Your existing native Hailo-Ollama server stays at `127.0.0.1:8000`. It is not installed or replaced by Compose, and nothing from it is shown on the mirror. Keep its current server terminal running until you separately configure a boot service. Its installed model names include `qwen2.5-instruct:1.5b`.
 
-The container restarts with Docker after a reboot. The health check checks the dashboard, independently of Hailo availability.
-
-## 4. Reuse the existing Hailo-Ollama installation
-
-The earlier Pi session successfully used this exact request. Verify it still works before troubleshooting the dashboard:
+In a second Pi terminal:
 
 ```sh
 curl -fsS http://127.0.0.1:8000/api/tags
-curl -fsS http://127.0.0.1:8000/api/chat \
+curl -sS --max-time 130 http://127.0.0.1:3001/api/chat \
   -H 'Content-Type: application/json' \
-  -d '{"model":"qwen2.5-instruct:1.5b","messages":[{"role":"user","content":"Say hello in one sentence."}],"stream":false}'
+  -d '{"messages":[{"role":"user","content":"Say hello in one sentence."}]}' \
+  -w '\nHTTP %{http_code}; elapsed %{time_total}s\n'
 ```
 
-If the installed model name differs, copy its exact name from `/api/tags` into `AI_MODEL` in `.env`. The adapter uses `stream:false`, so the browser receives the completed answer and shows an elapsed timer while waiting. It does not promise to remove the original model latency. One request at a time avoids competing mirror requests; requests from other applications can still compete for Hailo. Short questions and short history help. Cold model loading may make the first answer slower.
+The background API has moved from port **3000** to **3001**. In the verified Pi session, the old adapter returned the requested answer in about 12–15 seconds. A later five-minute Hailo `generation_context` reset can be ordinary idle-model unloading; use the actual HTTP response to judge inference success. Do not reinstall working runtime/driver packages just because the idle reset appears. [Hailo's source](https://github.com/hailo-ai/hailo_model_zoo_genai/blob/v5.1.1/src/library/config/static_config.hpp) defines its default keep-alive.
 
-If this check fails, inspect the existing Hailo service or container you already installed. This repository does not launch a second Hailo server, replace its packages, claim Hailo-8 supports these LLMs, or pull incompatible Ollama GGUF files. Hailo's current GenAI documentation lists Hailo-10H as a prerequisite; preserve the working hardware/runtime combination. See [Hailo's usage guide](https://github.com/hailo-ai/hailo_model_zoo_genai/blob/main/docs/USAGE.rst).
+## Configuration
 
-## 5. Display it on the Mirror
+| Setting | Purpose |
+| --- | --- |
+| `HOST`, `PORT` | MagicMirror bind address/port, default `127.0.0.1:3000` |
+| `API_PORT` | Background API port, default `3001` |
+| `TIMEZONE` | Clock timezone, default `America/Toronto` |
+| `AI_BASE_URL`, `AI_MODEL`, `AI_TIMEOUT_MS` | Existing Hailo endpoint, installed model, request timeout |
+| `HA_BASE_URL`, `HA_TOKEN`, `HA_ENTITIES` | Optional background read-only HA adapter; no screen module |
 
-Open `http://localhost:3000` in the Pi's browser. Set the display to portrait using your existing desktop display settings if necessary. This app does not change HDMI timings or display rotation. A working connection from the Pi to the Mirror panel/controller is a hardware prerequisite; the original Mirror computer is not configured by this project.
+For display modules and positioning, edit `magicmirror/config.cjs`; use official [MagicMirror² documentation](https://docs.magicmirror.builders/). Rebuild after changing it or `magicmirror/custom.css`. Calendar/weather are available through MagicMirror's normal module system but are deliberately unconfigured here. Keep API credentials in `.env`; `chmod 600 .env` restricts local access. The display container receives only its host, port and timezone, not AI or HA settings.
 
-For a full-screen kiosk, run whichever Chromium executable your Pi already has:
+Keep default loopback binding and the SSH tunnel. These services have no user login interface. MagicMirror's loopback IP whitelist is also retained. LAN/public exposure needs deliberate access-control configuration; it is not required for the tunnel.
 
-```sh
-chromium --kiosk --no-first-run http://localhost:3000
-# Some installations call the executable chromium-browser instead.
-```
+## New clone prerequisites
 
-Use Alt+F4 to exit. If you want it to start at desktop login, add that command through the desktop's Startup Applications settings after testing it manually. This requires a graphical desktop session; a headless OS does not acquire one from the container. Touchscreen input is optional; keyboard input or a future voice module is needed for chat.
+Use your existing 64-bit Pi Linux installation. `uname -m` should report `aarch64`; Git, Docker Engine and the Compose plugin must be available. Follow [Docker's Debian installation guide](https://docs.docker.com/engine/install/debian/) if missing. No OS reinstall is needed. Create `.env` from the example only if it does not already exist. If Docker needs administrator access, use the `sudo docker compose` commands above. The repository is public and requires no GitHub authentication for HTTPS cloning.
 
-## Optional Home Assistant
-
-Use an existing Home Assistant instance. Create a long-lived access token in its user profile and put its URL, token, and up to 20 entity IDs in `.env`. Keep `.env` readable only by your user (`chmod 600 .env`). Rerun the deployment script. The backend reads each configured entity every 30 seconds while the page is open. It returns only its name, state and unit, and never sends the token to the browser. Missing entities, expired tokens and network failures produce an unavailable state. The integration does not run automations or send device commands.
-
-API reference: [Home Assistant REST API](https://developers.home-assistant.io/docs/api/rest/).
-
-## Updates, stop and rollback
-
-To fetch and update readable Git checkouts across the Pi's common source directories:
+## Update other Pi source repositories
 
 ```sh
 bash scripts/update-repos.sh
 ```
 
-The helper searches `/home`, `/opt`, `/srv`, `/usr/local/src`, `/mnt` and `/media` where available. You can instead pass explicit search roots, including other NVMe mount points: `bash scripts/update-repos.sh "$HOME" /path/to/other/mount`. It fetches all configured remotes and fast-forwards clean current branches to their configured tracking branches. For a fork, this is the branch already configured in Git; it does not guess between `origin` and a remote named `upstream`.
+This searches readable Git checkouts under `/home`, `/opt`, `/srv`, `/usr/local/src`, `/mnt` and `/media`. Pass other roots explicitly if needed. It fetches configured remotes and fast-forwards clean current branches to their configured tracking branches. It preserves edits, untracked files, local commits and in-progress Git operations, and reports `ATTENTION` entries. It does not guess a fork's upstream, reset, stash, push, install packages or change submodules. The earlier Pi scan found only `~/mirror-os` in these roots.
 
-Local edits, untracked files, local commits, detached checkouts and missing tracking branches are reported for attention. Nothing is reset, stashed or pushed. Run as your normal user; unreadable repositories and ownership restrictions are reported, and directories outside the search roots are not inspected. This updates source files, not installed packages, models or running services. Submodules are not changed. Review the summary and each `ATTENTION` entry before considering the Pi fully updated.
+MagicMirror's upstream source lives in its image, not in a new checkout on the Pi. Updating the pinned official commit in the Dockerfile and rebuilding updates that source reproducibly.
 
-From this repository's directory:
-
-```sh
-git status --short
-git pull --ff-only
-sh scripts/deploy.sh
-docker compose -p mirror-os logs --tail=100 dashboard
-```
-
-Commit or back up your own source edits before pulling. `.env` is ignored and is preserved. Browser focus notes are separate from the repository.
-
-Stop and remove only this project's container:
+## Health, logs, stop and rollback
 
 ```sh
-docker compose -p mirror-os down
+sudo docker compose -p mirror-os ps
+curl -fsS http://127.0.0.1:3000/version
+curl -fsS http://127.0.0.1:3001/api/health
+sudo docker compose -p mirror-os logs --tail=100 dashboard backend
 ```
 
-To roll back, obtain the known-good commit from `git log`, then use `git switch --detach COMMIT_SHA` and rerun the deployment script. Return to `main` with `git switch main`. Inspect local changes first; do not use a hard reset. The application has no database migrations or volume cleanup to perform.
-
-Networking reference: [Docker host networking](https://docs.docker.com/engine/network/drivers/host/).
+To stop only this project, run `sudo docker compose -p mirror-os down`. For rollback, inspect `git status` and select a known-good commit from `git log`, then use `git switch --detach COMMIT_SHA` and rebuild. A rollback to the former one-container version can leave the new backend container as an orphan; remove only that project service explicitly if needed. No hard reset or storage cleanup is needed. A rollback does not modify Hailo or its model files.

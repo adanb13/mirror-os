@@ -1,10 +1,50 @@
 # mirror-os
 
-A custom, modular dashboard for a Raspberry Pi 5 driving a repurposed Lululemon Mirror display. This is an application, not a replacement operating-system image. It runs on the existing 64-bit Pi installation and reuses the local Hailo-Ollama server.
+**Actual MagicMirror² for the screen. Hailo AI runs separately in the background.**
 
-## Run on the Pi
+A deployment for a Raspberry Pi 5 and repurposed Lululemon Mirror. The display uses the official [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) v2.38.0 release, not a custom dashboard or imitation. The initial layout uses MagicMirror²'s standard clock module: white time, weekday and date in the upper-left corner, with the rest of the screen black. There are no chat boxes, AI status cards, branding, focus inputs or setup panels on the mirror.
 
-Open a terminal **on the Pi**. No SSH connection is assumed. You need Git, Docker Engine with Compose, and permission to access Docker. This repository is public; no GitHub sign-in is required to clone it.
+## Update the existing Pi deployment
+
+Run in your existing **SSH terminal on the Pi**:
+
+```sh
+cd ~/mirror-os
+git pull --ff-only
+sudo docker compose --progress plain -p mirror-os up -d --build --wait --wait-timeout 120
+```
+
+This replaces this project's old dashboard container with actual MagicMirror² and starts a separate background API container. Your existing `.env`, Hailo-Ollama installation, model files, OS and NVMe installation are preserved. The first MagicMirror image build downloads its official source and dependencies and can take several minutes. `--wait-timeout` applies to container readiness, not image download/build time.
+
+The display stays on **Pi port 3000**, so your existing SSH tunnel still works. Leave the Windows tunnel window open:
+
+```powershell
+ssh -N -L 127.0.0.1:13300:127.0.0.1:3000 mirror@10.0.0.177
+```
+
+Then open **http://127.0.0.1:13300** in the Windows browser. The Pi address above is the address reported in the original setup; use its current address if it changes. When a screen is physically connected to the Pi, a browser there uses **http://127.0.0.1:3000**. Remote SSH alone does not drive a display panel.
+
+## What runs where
+
+| Component | Default Pi address | Role |
+| --- | --- | --- |
+| MagicMirror² (`dashboard`) | `127.0.0.1:3000` | The mirror screen; clock and date only initially |
+| Background API (`backend`) | `127.0.0.1:3001` | Server-side Hailo adapter and optional HA reads; no UI |
+| Existing Hailo-Ollama | `127.0.0.1:8000` | Existing native inference service and installed models |
+
+**Migration:** the old custom API routes on port 3000 move to port 3001. Port 3000 now belongs entirely to MagicMirror². The display starts and works independently of Hailo; an offline AI service cannot remove or block the clock.
+
+Your successful Pi test used `qwen2.5-instruct:1.5b`, and that remains the background adapter's default. The background API retains validated chat, bounded history, timeouts, a single in-flight AI request, and optional read-only Home Assistant entity access. It serves no HTML, assets or frontend. Hailo and Home Assistant credentials are not passed to the MagicMirror container.
+
+## Configure the screen
+
+Edit **`magicmirror/config.cjs`** to add standard or custom MagicMirror² modules, then rebuild. Only `clock` is enabled now; no invented weather location, calendar feed or AI module is preconfigured. Edit `magicmirror/custom.css` for screen spacing and type sizes. A black display background supports the mirror/reflection effect; software transparency cannot make an LCD physically transparent.
+
+The shipped configuration uses `TIMEZONE=America/Toronto`, 24-hour time, and no seconds. Existing legacy `.env` settings `MODULES` and `MIRROR_TITLE` are ignored; they do not re-enable the removed custom interface. No settings need changing to migrate an existing default `.env`.
+
+## New install and checks
+
+This repository is public; cloning needs no GitHub login. On an existing 64-bit Pi OS with Docker Engine and Compose:
 
 ```sh
 git clone https://github.com/adanb13/mirror-os.git
@@ -12,55 +52,14 @@ cd mirror-os
 sh scripts/deploy.sh
 ```
 
-Open **http://localhost:3000** in the Pi's browser. AI uses the existing **http://127.0.0.1:8000** service with **qwen2.5-instruct:1.5b**, matching the successful request from the original setup. The dashboard works while AI is offline. The first image build needs internet access; normal dashboard and AI operation use no external assets or cloud AI.
-
-The deployment script creates `.env` only when it does not exist, validates Compose, then builds and starts this project's container. It does not format or mount disks, edit boot settings, install Hailo drivers, download models, or alter other Compose projects. Application files and Docker's ordinary image/cache data consume space on your existing filesystem.
-
-## What works
-
-- Portrait-friendly black dashboard, local clock/date and configurable timezone.
-- Focus note saved in this browser's local storage.
-- Text chat through a server-side Hailo-Ollama adapter, short-answer system prompt, bounded conversation history, elapsed-time display, timeouts and one in-flight AI request.
-- AI status/model listing, with clear offline behavior.
-- Optional **read-only** Home Assistant entity cards; credentials stay on the server.
-- Configurable module order through `.env` and independent UI/backend modules.
-
-Voice and casting are explicitly **planned extension points**. No microphone capture, wake word, speech engine, AirPlay/Chromecast receiver or home-control actions are installed or claimed. See [extension guide](docs/architecture.md).
-
-## Configure
-
-The first deployment copies `.env.example` to `.env`. Edit it and rerun `sh scripts/deploy.sh`. Never commit `.env`.
-
-| Variable | Default / purpose |
-| --- | --- |
-| `HOST`, `PORT` | `127.0.0.1`, `3000`; Pi-local access |
-| `ALLOWED_HOSTS` | Extra permitted browser hostnames/IPs for optional LAN use; prevents DNS rebinding |
-| `MIRROR_TITLE` | `Mirror` |
-| `TIMEZONE` | `America/Toronto`; an IANA timezone |
-| `MODULES` | `clock,notes,assistant,integrations,home-assistant`; reorder or remove |
-| `AI_BASE_URL` | `http://127.0.0.1:8000`; existing Hailo endpoint |
-| `AI_MODEL` | `qwen2.5-instruct:1.5b`; must match an installed model |
-| `AI_TIMEOUT_MS` | `120000`; maximum chat request duration |
-| `HA_BASE_URL` | Optional existing Home Assistant URL, e.g. `http://homeassistant.local:8123` |
-| `HA_TOKEN` | Optional long-lived Home Assistant access token |
-| `HA_ENTITIES` | Comma-separated entity IDs, e.g. `sensor.living_room_temperature,light.living_room` |
-
-The server has no login system. Keep the default loopback binding for a local kiosk. Changing `HOST` to `0.0.0.0` and adding your Pi address to `ALLOWED_HOSTS` deliberately makes chat and configured Home Assistant states accessible to other LAN devices. Do not forward this port to the internet. Chat history is in page memory only, and notes use browser storage; this app does not log prompts or write transcripts.
-
-## Develop without Docker
-
-Node.js 24 or later is required; there are no third-party npm dependencies.
+The deployment helper expects Docker access for the invoking user. Use the explicit `sudo docker compose` update command above if your Pi requires sudo; create `.env` first with `cp .env.example .env` if it does not exist. Never commit `.env`.
 
 ```sh
-cp .env.example .env
-npm start
-# In another terminal:
-npm run check
-npm test
+sudo docker compose -p mirror-os ps
+curl -fsS http://127.0.0.1:3000/version
+curl -fsS http://127.0.0.1:3001/api/health
 ```
 
-Native startup uses `.env`; Docker receives it through Compose. On Windows/macOS, native startup is the simplest development path; the provided host-network Compose deployment targets Pi Linux.
+See [deployment and SSH viewing](docs/deployment.md), [architecture and upstream version](docs/architecture.md), and [validation](docs/validation.md).
 
-See [deployment, updates and rollback](docs/deployment.md), [module architecture and roadmap](docs/architecture.md), and [validation](docs/validation.md).
-
-Independent personal project; not affiliated with lululemon, Raspberry Pi or Hailo. No upstream mirror project was forked or modified.
+Voice and casting remain future background integrations, not installed speech engines or receivers. This project is independent of lululemon, Raspberry Pi, Hailo and the MagicMirror² project. MagicMirror² retains its upstream MIT license and attribution in the built image.
