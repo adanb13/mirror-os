@@ -31,5 +31,26 @@ module.exports = {
       showSunTimes: false,
       showMoonTimes: false
     }
+  }, {
+    module: 'newsfeed',
+    position: 'bottom_bar',
+    config: {
+      // The standard MagicMirror news source; fetched directly without a proxy.
+      feeds: [{
+        title: 'New York Times',
+        url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml',
+        useCorsProxy: false
+      }],
+      showAsList: false,
+      showSourceTitle: true,
+      showPublishDate: false,
+      showDescription: false,
+      showTitleAsUrl: false,
+      wrapTitle: true,
+      updateInterval: 15000,
+      reloadInterval: 5 * 60 * 1000,
+      animationSpeed: 500,
+      maxNewsItems: 10
+    }
   }]
 };

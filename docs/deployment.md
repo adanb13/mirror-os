@@ -29,7 +29,7 @@ ssh -N -L 127.0.0.1:13300:127.0.0.1:3000 mirror@10.0.0.177
 
 Enter the Pi password and leave that window running. It normally appears idle. Open **http://127.0.0.1:13300** in the Windows browser. Reuse your usual SSH identity/port options if needed. If the Pi address changes, obtain it with `hostname -I` in the existing Pi terminal. Use the LAN address, not Docker's bridge address.
 
-The existing tunnel does not need changing during this migration. Reload the page after the containers become healthy; use Ctrl+Shift+R if an old browser page remains visible. The expected page has MagicMirror²'s clock and date, with no AI cards, input fields or branding.
+The existing tunnel does not need changing during this migration. Reload the page after the containers become healthy; use Ctrl+Shift+R if an old browser page remains visible. The expected page has MagicMirror²'s clock and date at the upper left and one rotating news headline at the bottom, with no AI cards, input fields or branding. The Pi needs outbound internet access to fetch news from the New York Times RSS feed; the clock and local Hailo inference do not require that feed.
 
 ## When the physical Mirror display is connected
 

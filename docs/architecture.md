@@ -2,7 +2,7 @@
 
 ```text
 Windows browser -- SSH tunnel 13300 -> Pi 3000 --> dashboard: official MagicMirror²
-                                                  defaultmodules/clock only
+                                                  defaultmodules/clock + newsfeed
 
 Background consumers --> Pi 3001 --> backend: existing validated HTTP adapters
                                       |--> native Hailo-Ollama on Pi 8000
@@ -15,7 +15,7 @@ There is no frontend dependency between these services. MagicMirror² starts and
 
 The main `Dockerfile` fetches [MagicMirrorOrg/MagicMirror](https://github.com/MagicMirrorOrg/MagicMirror), official **v2.38.0**, commit **f138f5b690ceab6450f55c852ac81d268363f563**. The release was checked against the official repository when this migration was authored. Source and npm dependencies are pinned by that commit and its lockfile. Optional Electron is omitted because this is a headless server deployment; an existing browser displays the real MagicMirror frontend, including its Socket.IO connection. The upstream license remains in the image.
 
-`magicmirror/config.cjs` is copied as upstream's `config/config.js`. It uses the real built-in clock module in the `top_left` region, an IANA timezone, white text, and a pure black background. `magicmirror/custom.css` adjusts spacing/type while retaining upstream layout. Add calendar, weather or future custom modules through this real configuration, with genuine data sources configured explicitly. A module change requires rebuilding the display image. Future persistent third-party module installation can extend the Dockerfile; there is no generic writable module mount or unreviewed auto-installer.
+`magicmirror/config.cjs` is copied as upstream's `config/config.js`. It uses the real built-in clock module in `top_left` and newsfeed in `bottom_bar`, an IANA timezone, white text, and a pure black background. The upstream news helper fetches the New York Times RSS feed directly over HTTPS every five minutes. Headlines rotate every 15 seconds; descriptions and article views are disabled. This outbound news connection is independent of Hailo and does not add browsing tools to the AI. `magicmirror/custom.css` adjusts spacing/type while retaining upstream layout. Add calendar, weather or future custom modules through this real configuration, with genuine data sources configured explicitly. A module change requires rebuilding the display image. Future persistent third-party module installation can extend the Dockerfile; there is no generic writable module mount or unreviewed auto-installer.
 
 To upgrade upstream, inspect the latest official release, update `MAGICMIRROR_COMMIT` in the Dockerfile to its verified commit, then run the container and asset/Socket.IO smoke checks. Do not silently track `master` for production builds. A GitHub fork of MagicMirror is not needed: `mirror-os` owns the deployment configuration, not a copy of the upstream source.
 

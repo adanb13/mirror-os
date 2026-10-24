@@ -2,7 +2,7 @@
 
 **Actual MagicMirror² for the screen. Hailo AI runs separately in the background.**
 
-A deployment for a Raspberry Pi 5 and repurposed Lululemon Mirror. The display uses the official [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) v2.38.0 release, not a custom dashboard or imitation. The initial layout uses MagicMirror²'s standard clock module: white time, weekday and date in the upper-left corner, with the rest of the screen black. There are no chat boxes, AI status cards, branding, focus inputs or setup panels on the mirror.
+A deployment for a Raspberry Pi 5 and repurposed Lululemon Mirror. The display uses the official [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) v2.38.0 release. The layout uses its standard clock and newsfeed modules: white time, weekday and date in the upper-left corner, one news headline along the bottom, and an open black centre. There are no chat boxes, AI status cards, branding, focus inputs or setup panels on the mirror.
 
 ## Update the existing Pi deployment
 
@@ -28,7 +28,7 @@ Then open **http://127.0.0.1:13300** in the Windows browser. The Pi address abov
 
 | Component | Default Pi address | Role |
 | --- | --- | --- |
-| MagicMirror² (`dashboard`) | `127.0.0.1:3000` | The mirror screen; clock and date only initially |
+| MagicMirror² (`dashboard`) | `127.0.0.1:3000` | The mirror screen; clock, date and rotating news headline |
 | Background API (`backend`) | `127.0.0.1:3001` | Server-side Hailo adapter and optional HA reads; no UI |
 | Existing Hailo-Ollama | `127.0.0.1:8000` | Existing native inference service and installed models |
 
@@ -38,7 +38,7 @@ Your successful Pi test used `qwen2.5-instruct:1.5b`, and that remains the backg
 
 ## Configure the screen
 
-Edit **`magicmirror/config.cjs`** to add standard or custom MagicMirror² modules, then rebuild. Only `clock` is enabled now; no invented weather location, calendar feed or AI module is preconfigured. Edit `magicmirror/custom.css` for screen spacing and type sizes. A black display background supports the mirror/reflection effect; software transparency cannot make an LCD physically transparent.
+Edit **`magicmirror/config.cjs`** to configure standard or custom MagicMirror² modules, then rebuild. Only `clock` and `newsfeed` are enabled. News uses the upstream default New York Times RSS feed, fetched directly from the publisher every five minutes; the latest ten headlines rotate one at a time every 15 seconds, with the source label and no article descriptions. News requires an internet connection; it does not give the local AI web access. To choose another RSS source, change `feeds` in the news module configuration. No weather, calendar or AI module is preconfigured. Edit `magicmirror/custom.css` for screen spacing and type sizes. A black display background supports the mirror/reflection effect; software transparency cannot make an LCD physically transparent.
 
 The shipped configuration uses `TIMEZONE=America/Toronto`, 24-hour time, and no seconds. Existing legacy `.env` settings `MODULES` and `MIRROR_TITLE` are ignored; they do not re-enable the removed custom interface. No settings need changing to migrate an existing default `.env`.
 
